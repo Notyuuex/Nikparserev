@@ -1,23 +1,15 @@
+import os
 import telebot
 import subprocess
 import json
-import re
 from telebot import types
 from datetime import datetime
 from collections import defaultdict
 from random import randint, choice
+import re
 
-BOT_TOKEN = "7761754811:AAGlcbN2dfiFTdwWgmiyVMs6HIy9OfMV45Y"
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 bot = telebot.TeleBot(BOT_TOKEN)
-
-# ADMIN ONLY SETUP
-ADMIN_IDS = [7086594019]  # Ganti dengan ID kamu dari hasil /myid
-def is_admin(user_id):
-    return user_id in ADMIN_IDS
-
-@bot.message_handler(commands=['myid'])
-def get_my_id(message):
-    bot.reply_to(message, f"🆔 User ID kamu adalah: `{message.from_user.id}`", parse_mode="Markdown")
 
 KOORDINAT_DAERAH = {
     "KAB. BANTUL": (-7.888056, 110.328056),
@@ -29,6 +21,15 @@ KOORDINAT_DAERAH = {
 PASARAN_JAWA = ["Legi", "Pahing", "Pon", "Wage", "Kliwon"]
 user_counter = defaultdict(int)
 
+ADMIN_IDS = [123456789]  # Ganti dengan user ID kamu
+
+def is_admin(user_id):
+    return user_id in ADMIN_IDS
+
+@bot.message_handler(commands=['myid'])
+def get_my_id(message):
+    bot.reply_to(message, f"🆔 User ID kamu adalah: `{message.from_user.id}`", parse_mode="Markdown")
+
 def validasi_nik(nik):
     return bool(re.fullmatch(r'\d{16}', nik))
 
@@ -36,8 +37,7 @@ def hitung_umur(tanggal_lahir_str):
     try:
         tanggal = datetime.strptime(tanggal_lahir_str, "%d %B %Y")
         today = datetime.today()
-        umur = today.year - tanggal.year - ((today.month, today.day) < (tanggal.month, tanggal.day))
-        return umur
+        return today.year - tanggal.year - ((today.month, today.day) < (tanggal.month, tanggal.day))
     except:
         return "-"
 
@@ -85,27 +85,41 @@ def send_welcome(message):
 @bot.message_handler(commands=['help'])
 def send_help(message):
     help_text = (
-        "📖 *Perintah yang Tersedia:*\n"
-        "/ceknik <NIK> - Cek informasi dari NIK\n"
-        "/loglast - Lihat log terakhir (admin)\n"
-        "/topuser - Pengguna teraktif (admin)\n"
-        "/randomnik - Generate NIK acak\n"
-        "/lacaknik <NIK> - Taksir lokasi dari NIK (admin)\n"
-        "/myid - Lihat User ID kamu\n"
+        "📖 *Perintah:*\n"
+        "/ceknik <NIK> - Cek info lengkap\n"
+        "/randomnik - NIK acak\n"
+        "/topuser - Ranking pengguna (admin)\n"
+        "/loglast - Log terakhir (admin)\n"
+        "/lacaknik <NIK> - Estimasi lokasi (admin)\n"
+        "/myid - Lihat user ID\n"
         "/about - Tentang bot"
     )
     bot.reply_to(message, help_text, parse_mode="Markdown")
 
 @bot.message_handler(commands=['about'])
 def send_about(message):
-    bot.reply_to(message,
-        "🤖 Bot Rev ini mengecek informasi dari NIK, termasuk tanggal lahir, zodiak, pasaran Jawa, dan lokasi.\n"
-        "Dikembangkan oleh: @yuplgm", parse_mode="Markdown")
+    bot.reply_to(message, "🤖 Bot pemeriksa NIK dengan lokasi, umur, zodiak, dan pasaran Jawa.\nDibuat oleh @yourtelegramusername", parse_mode="Markdown")
+
+@bot.message_handler(commands=['randomnik'])
+def random_nik(message):
+    bot.reply_to(message, f"🔢 Contoh NIK Acak:\n`{generate_random_nik()}`", parse_mode="Markdown")
+
+@bot.message_handler(commands=['topuser'])
+def top_user(message):
+    if not is_admin(message.from_user.id):
+        bot.reply_to(message, "🚫 Hanya admin.")
+        return
+    if not user_counter:
+        bot.reply_to(message, "📭 Belum ada aktivitas.")
+        return
+    ranking = sorted(user_counter.items(), key=lambda x: x[1], reverse=True)
+    hasil = "\n".join([f"{i+1}. @{u} - {c}x" for i, (u, c) in enumerate(ranking[:5])])
+    bot.reply_to(message, f"🏆 *Top User:*\n{hasil}", parse_mode="Markdown")
 
 @bot.message_handler(commands=['loglast'])
 def show_log_last(message):
     if not is_admin(message.from_user.id):
-        bot.reply_to(message, "🚫 Hanya admin yang boleh menggunakan perintah ini.")
+        bot.reply_to(message, "🚫 Hanya admin.")
         return
     try:
         with open("log.txt", "r") as f:
@@ -113,42 +127,26 @@ def show_log_last(message):
             if lines:
                 bot.reply_to(message, f"🗂️ Log Terakhir:\n{lines[-1]}")
             else:
-                bot.reply_to(message, "📭 Belum ada log yang tersimpan.")
+                bot.reply_to(message, "📭 Belum ada log.")
     except FileNotFoundError:
         bot.reply_to(message, "📁 File log belum dibuat.")
-
-@bot.message_handler(commands=['topuser'])
-def top_user(message):
-    if not is_admin(message.from_user.id):
-        bot.reply_to(message, "🚫 Perintah ini hanya untuk admin.")
-        return
-    if not user_counter:
-        bot.reply_to(message, "📭 Belum ada aktivitas pengguna.")
-        return
-    sorted_users = sorted(user_counter.items(), key=lambda x: x[1], reverse=True)
-    ranking = "\n".join([f"{i+1}. @{u} - {c}x" for i, (u, c) in enumerate(sorted_users[:5])])
-    bot.reply_to(message, f"🏆 *Pengguna Teraktif:*\n{ranking}", parse_mode="Markdown")
-
-@bot.message_handler(commands=['randomnik'])
-def random_nik(message):
-    bot.reply_to(message, f"🔢 Contoh NIK Acak:\n`{generate_random_nik()}`", parse_mode="Markdown")
 
 @bot.message_handler(commands=['lacaknik'])
 def lacak_nik(message):
     if not is_admin(message.from_user.id):
-        bot.reply_to(message, "🚫 Hanya admin yang boleh melacak NIK.")
+        bot.reply_to(message, "🚫 Hanya admin.")
         return
     try:
         nik = message.text.split(" ")[1]
         if len(nik) < 6 or not nik[:6].isdigit():
-            bot.reply_to(message, "❌ Format NIK tidak lengkap atau salah.")
+            bot.reply_to(message, "❌ Format NIK tidak valid.")
             return
         kode = nik[:6]
         prov = kode[:2]
         kab = kode[:4]
-        bot.reply_to(message, f"📍 Estimasi Lokasi:\nKode Wilayah: {kode}\nProvinsi: {prov}xxx\nKabupaten: {kab}xx")
+        bot.reply_to(message, f"📍 Estimasi Wilayah:\nKode: {kode}\nProvinsi: {prov}xxx\nKabupaten: {kab}xx")
     except IndexError:
-        bot.reply_to(message, "❗ Gunakan format: /lacaknik <16 digit NIK>")
+        bot.reply_to(message, "❗ Gunakan: /lacaknik <NIK>")
 
 @bot.message_handler(commands=['ceknik'])
 def cek_nik(message):
@@ -160,12 +158,11 @@ def cek_nik(message):
 
         result = subprocess.run(['python3', 'nik_parse.py', '-n', nik], capture_output=True, text=True)
         parsed = json.loads(result.stdout)
-
         if parsed.get("status") != "success":
-            bot.reply_to(message, "❌ NIK tidak valid atau gagal diproses.")
+            bot.reply_to(message, "❌ NIK gagal diproses.")
             return
 
-        data = parsed.get("data", {})
+        data = parsed["data"]
         lokasi = f"{data.get('kotakab', '-')}, {data.get('provinsi', '-')}"
         maps_url = "https://www.google.com/maps/search/" + lokasi.replace(" ", "+")
         tgl_lahir = data.get('lahir', '-')
@@ -174,7 +171,7 @@ def cek_nik(message):
         pasaran = cari_pasaran(tgl_lahir)
 
         output = "\n".join([
-            f"✅ *Hasil Parsing NIK:*",
+            "*✅ Info NIK:*",
             f"NIK: {data.get('nik', '-')}",
             f"Jenis Kelamin: {data.get('kelamin', '-')}",
             f"Tanggal Lahir: {tgl_lahir}",
@@ -182,27 +179,25 @@ def cek_nik(message):
             f"Zodiak: {zodiak}",
             f"Pasaran Jawa: {pasaran}",
             f"Provinsi: {data.get('provinsi', '-')}",
-            f"Kabupaten/Kota: {data.get('kotakab', '-')}",
-            f"Kecamatan: {data.get('kecamatan', '-')}",
+            f"Kabupaten: {data.get('kotakab', '-')}",
+            f"Kecamatan: {data.get('kecamatan', '-')}"
         ])
 
         keyboard = types.InlineKeyboardMarkup()
-        button_maps = types.InlineKeyboardButton(text="🌐 Lihat di Google Maps", url=maps_url)
-        keyboard.add(button_maps)
-
+        keyboard.add(types.InlineKeyboardButton("🌐 Google Maps", url=maps_url))
         bot.reply_to(message, output, parse_mode="Markdown", reply_markup=keyboard)
 
-        lokasi_kab = data.get("kotakab")
-        if lokasi_kab in KOORDINAT_DAERAH:
-            lat, lon = KOORDINAT_DAERAH[lokasi_kab]
-            bot.send_location(message.chat.id, latitude=lat, longitude=lon)
+        if data.get("kotakab") in KOORDINAT_DAERAH:
+            lat, lon = KOORDINAT_DAERAH[data["kotakab"]]
+            bot.send_location(message.chat.id, lat, lon)
 
-        with open("log.txt", "a") as log:
-            log.write(f"{datetime.now()} | @{message.from_user.username} | {nik} | {data.get('provinsi')} | {data.get('kotakab')}\n")
+        with open("log.txt", "a") as f:
+            f.write(f"{datetime.now()} | @{message.from_user.username} | {nik} | {data.get('provinsi')} | {data.get('kotakab')}\n")
 
         user_counter[message.from_user.username] += 1
 
     except Exception as e:
-        bot.reply_to(message, f"⚠️ Terjadi kesalahan:\n{e}")
+        bot.reply_to(message, f"⚠️ Error: {e}")
 
+print("✅ Bot aktif dan polling dimulai...")
 bot.infinity_polling()
