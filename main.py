@@ -21,7 +21,7 @@ KOORDINAT_DAERAH = {
 PASARAN_JAWA = ["Legi", "Pahing", "Pon", "Wage", "Kliwon"]
 user_counter = defaultdict(int)
 
-ADMIN_IDS = [123456789]  # Ganti dengan user ID kamu
+ADMIN_IDS = [7086594019]  # Ganti dengan user ID kamu
 
 def is_admin(user_id):
     return user_id in ADMIN_IDS
@@ -98,7 +98,7 @@ def send_help(message):
 
 @bot.message_handler(commands=['about'])
 def send_about(message):
-    bot.reply_to(message, "🤖 Bot pemeriksa NIK dengan lokasi, umur, zodiak, dan pasaran Jawa.\nDibuat oleh @yourtelegramusername", parse_mode="Markdown")
+    bot.reply_to(message, "🤖 Bot Rev pemeriksa NIK dengan lokasi, umur, zodiak, dan pasaran Jawa.\nDibuat oleh @yuplgm", parse_mode="Markdown")
 
 @bot.message_handler(commands=['randomnik'])
 def random_nik(message):
